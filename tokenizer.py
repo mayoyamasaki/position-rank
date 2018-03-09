@@ -1,6 +1,7 @@
 from stanfordcorenlp import StanfordCoreNLP
 import re
 import MeCab
+import json
 
 
 class StanfordCoreNlpTokenizer(object):
@@ -40,13 +41,27 @@ class StanfordCoreNlpTokenizer(object):
           Phrase list: Specific continuous tokens.
 
         """
-        tokens = self.tokenizer.pos_tag(sentence)
+        tokens = self._pos_tag(sentence)
         pos_tags = [self._anonymize_pos(token[1]) for token in tokens]
         pattern = r"J*N+"
         iterator = re.finditer(pattern, "".join(pos_tags))
         phrases = filter(lambda x: len(x) <= 3, [[token[0] for token in tokens[match.start():match.end()]] for match in iterator])
         phrases = ["_".join(phrase) for phrase in phrases]
         return [token[0] for token in tokens if token[1] in pos_filter], phrases
+
+    def _pos_tag(self, text):
+        """POS tagging and lemmatize word
+        """
+        props={'annotators': 'tokenize,pos,lemma','pipelineLanguage':'en'}
+        r_json = self.tokenizer.annotate(text, properties=props)
+        r_dict = json.loads(r_json)
+        words = []
+        tags = []
+        for s in r_dict['sentences']:
+            for token in s['tokens']:
+                words.append(token['lemma'])
+                tags.append(token['pos'])
+        return list(zip(words, tags))
 
     def _anonymize_pos(self, pos):
         """Anonymize POS tags.
